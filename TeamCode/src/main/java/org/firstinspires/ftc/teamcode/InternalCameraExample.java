@@ -38,6 +38,11 @@ import org.openftc.easyopencv.OpenCvPipeline;
 public class InternalCameraExample extends LinearOpMode
 {
     OpenCvCamera phoneCam;
+    private Stickygamepad _gamepad1;
+    private Location location = Location.left;
+    private enum Location {
+        left, middle, right, line
+    }
 
     @Override
     public void runOpMode()
@@ -82,6 +87,7 @@ public class InternalCameraExample extends LinearOpMode
          */
         phoneCam.startStreaming(320, 240, OpenCvCameraRotation.UPRIGHT);
 
+        _gamepad1 = new Stickygamepad(gamepad1);
         /*
          * Wait for the user to press start on the Driver Station
          */
@@ -89,74 +95,83 @@ public class InternalCameraExample extends LinearOpMode
 
         while (opModeIsActive())
         {
-            /*
-             * Send some stats to the telemetry
-             */
-            telemetry.addData("Frame Count", phoneCam.getFrameCount());
-            telemetry.addData("FPS", String.format("%.2f", phoneCam.getFps()));
-            telemetry.addData("Total frame time ms", phoneCam.getTotalFrameTimeMs());
-            telemetry.addData("Pipeline time ms", phoneCam.getPipelineTimeMs());
-            telemetry.addData("Overhead time ms", phoneCam.getOverheadTimeMs());
-            telemetry.addData("Theoretical max FPS", phoneCam.getCurrentPipelineMaxFps());
-            telemetry.addData("location", pipeline.location);
+            telemetry.addData("left (x, y)", "%f %f", pipeline.cx0, pipeline.cy0);
+            telemetry.addData("middle (x, y)", "%f %f", pipeline.cx1, pipeline.cy1);
+            telemetry.addData("right (x, y)", "%f %f", pipeline.cx2, pipeline.cy2);
+            telemetry.addData("line x", "%f", pipeline.lineY);
+            telemetry.addData("dot location", location);
+            telemetry.addData("location ", pipeline.location);
             telemetry.update();
 
-            /*
-             * NOTE: stopping the stream from the camera early (before the end of the OpMode
-             * when it will be automatically stopped for you) *IS* supported. The "if" statement
-             * below will stop streaming from the camera when the "A" button on gamepad 1 is pressed.
-             */
-            if(gamepad1.a)
-            {
-                /*
-                 * IMPORTANT NOTE: calling stopStreaming() will indeed stop the stream of images
-                 * from the camera (and, by extension, stop calling your vision pipeline). HOWEVER,
-                 * if the reason you wish to stop the stream early is to switch use of the camera
-                 * over to, say, Vuforia or TFOD, you will also need to call closeCameraDevice()
-                 * (commented out below), because according to the Android Camera API documentation:
-                 *         "Your application should only have one Camera object active at a time for
-                 *          a particular hardware camera."
-                 *
-                 * NB: calling closeCameraDevice() will internally call stopStreaming() if applicable,
-                 * but it doesn't hurt to call it anyway, if for no other reason than clarity.
-                 *
-                 * NB2: if you are stopping the camera stream to simply save some processing power
-                 * (or battery power) for a short while when you do not need your vision pipeline,
-                 * it is recommended to NOT call closeCameraDevice() as you will then need to re-open
-                 * it the next time you wish to activate your vision pipeline, which can take a bit of
-                 * time. Of course, this comment is irrelevant in light of the use case described in
-                 * the above "important note".
-                 */
-                phoneCam.stopStreaming();
-                //webcam.closeCameraDevice();
+            _gamepad1.update();
+            if (_gamepad1.x) {
+                if (location == Location.line) {
+                    pipeline.lineY -= 10;
+                } else if (location == Location.left) {
+                    pipeline.cx0 += 10;
+                } else if (location == Location.middle) {
+                    pipeline.cx1 += 10;
+                } else if (location == Location.right){
+                    pipeline.cx2 += 10;
+                }
             }
 
-            /*
-             * The viewport (if one was specified in the constructor) can also be dynamically "paused"
-             * and "resumed". The primary use case of this is to reduce CPU, memory, and power load
-             * when you need your vision pipeline running, but do not require a live preview on the
-             * robot controller screen. For instance, this could be useful if you wish to see the live
-             * camera preview as you are initializing your robot, but you no longer require the live
-             * preview after you have finished your initialization process; pausing the viewport does
-             * not stop running your pipeline.
-             *
-             * The "if" statements below will pause the viewport if the "X" button on gamepad1 is pressed,
-             * and resume the viewport if the "Y" button on gamepad1 is pressed.
-             */
-            else if(gamepad1.x)
-            {
-                phoneCam.pauseViewport();
-            }
-            else if(gamepad1.y)
-            {
-                phoneCam.resumeViewport();
+            if (_gamepad1.y) {
+                if (location == Location.left) {
+                    pipeline.cx0 -= 10;
+                } else if (location == Location.middle) {
+                    pipeline.cx1 -= 10;
+                } else if (location == Location.right){
+                    pipeline.cx2 -= 10;
+                }
             }
 
-            /*
-             * For the purposes of this sample, throttle ourselves to 10Hz loop to avoid burning
-             * excess CPU cycles for no reason. (By default, telemetry is only sent to the DS at 4Hz
-             * anyway). Of course in a real OpMode you will likely not want to do this.
-             */
+            if (_gamepad1.b) {
+                if (location == Location.line) {
+                    pipeline.lineY += 10;
+                } else if (location == Location.left) {
+                    pipeline.cy0 += 10;
+                } else if (location == Location.middle) {
+                    pipeline.cy1 += 10;
+                } else if (location == Location.right) {
+                    pipeline.cy2 += 10;
+                }
+            }
+
+            if (_gamepad1.a) {
+                if (location == Location.left) {
+                    pipeline.cy0 -= 10;
+                } else if (location == Location.middle) {
+                    pipeline.cy1 -= 10;
+                } else if (location == Location.right){
+                    pipeline.cy2 -= 10;
+                }
+            }
+
+            if (_gamepad1.left_bumper) {
+                if (location == Location.middle) {
+                    location = Location.middle.left;
+                } else if (location == Location.right) {
+                    location = Location.middle.middle;
+                } else if (location == Location.left){
+                    location = Location.line;
+                } else {
+                    location = Location.line;
+                }
+            }
+
+            if (_gamepad1.right_bumper) {
+                if (location == Location.line) {
+                    location = Location.left;
+                } else if (location == Location.left) {
+                    location = Location.middle;
+                } else if (location == Location.middle) {
+                    location = Location.right;
+                } else {
+                    location = Location.right;
+                }
+            }
+
             sleep(100);
         }
     }
@@ -192,12 +207,14 @@ public class InternalCameraExample extends LinearOpMode
         private Scalar WHITE = new Scalar(255,255,255);
         private Scalar RED = new Scalar(255, 0, 0);
 
-        private double cx0 = 125;
-        private double cy0 = 50;
-        private double cx1 = 125;
-        private double cy1 = 150;
-        private double cx2 = 125;
-        private double cy2 = 250;
+        public double cx0 = 125;
+        public double cy0 = 50;
+        public double cx1 = 125;
+        public double cy1 = 150;
+        public double cx2 = 125;
+        public double cy2 = 250;
+
+        public double lineY = 110;
 
         private int r = 5;
         private int strokeWidth = 3;
@@ -277,7 +294,7 @@ public class InternalCameraExample extends LinearOpMode
                 s1 = RED;
             }
 
-            Imgproc.line(frame, new Point(0, 275), new Point(300, 275), new Scalar(0, 255, 0));
+            Imgproc.line(frame, new Point(0, lineY), new Point(300, lineY), new Scalar(0, 255, 0));
             Imgproc.circle(frame, new Point(cx0, cy0), r, s0, Core.FILLED);
             Imgproc.circle(frame, new Point(cx1, cy1), r, s1, Core.FILLED);
             Imgproc.circle(frame, new Point(cx2, cy2), r, s2, Core.FILLED);
